@@ -1,55 +1,64 @@
 import streamlit as st
-import tensorflow as tf
 import numpy as np
 from PIL import Image
+import tensorflow as tf
 
 # -------------------------------
-# Load the trained model
+# Load model
 # -------------------------------
 @st.cache_resource
 def load_model():
-    return tf.keras.models.load_model("fruit_classifier.h5")
+    return tf.keras.models.load_model("fruit_classifier.h5")  # Make sure this is in the same folder
 
 model = load_model()
 
 # -------------------------------
-# Preprocess image
+# Class info
 # -------------------------------
-def preprocess(image):
-    img = image.resize((128, 128))
-    img = np.array(img)/255.0
-
-    # Ensure 3 channels
-    if img.ndim == 2:           # grayscale
-        img = np.stack([img]*3, axis=-1)
-    elif img.shape[-1] == 4:    # RGBA
-        img = img[:, :, :3]
-
-    img = np.expand_dims(img, axis=0)  # Add batch dimension
-    return img
+class_names = ["Apple", "Orange", "Banana"]
 
 # -------------------------------
-# Streamlit App
+# Image preprocessing
+# -------------------------------
+def preprocess(img):
+    # Resize to 128x128
+    img = img.resize((128, 128))
+    # Convert to RGB (handles grayscale or RGBA images)
+    img = img.convert("RGB")
+    # Convert to numpy array and normalize
+    img_array = np.array(img) / 255.0
+    # Add batch dimension
+    img_array = np.expand_dims(img_array, axis=0)
+    return img_array
+
+# -------------------------------
+# Streamlit UI
 # -------------------------------
 st.title("🍎 Fruit Classifier")
-st.write("Upload an image of an Apple, Orange, or Banana.")
 
-uploaded_file = st.file_uploader("Choose an image", type=["png","jpg","jpeg"])
+uploaded_file = st.file_uploader("Upload an image of Apple, Orange, or Banana", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
-    img = Image.open(uploaded_file)
-    st.image(img, caption="Uploaded Image", width=300)
+    try:
+        img = Image.open(uploaded_file)
+        st.image(img, caption="Uploaded Image", use_column_width=True)
+        x = preprocess(img)
 
-    x = preprocess(img)
-    pred = model.predict(x)[0]  # prediction vector
+        # Predict
+        pred = model.predict(x)
+        if pred.shape[-1] != len(class_names):
+            st.error(f"Model output shape {pred.shape[-1]} does not match number of classes {len(class_names)}")
+        else:
+            pred = pred[0]
+            predicted_class = class_names[int(np.argmax(pred))]
 
-    class_names = ["Apple","Orange","Banana"]
+            st.subheader(f"🎯 Predicted Class: {predicted_class}")
 
-    # Show predicted class
-    predicted_class = class_names[int(np.argmax(pred))]
-    st.subheader(f"🎯 Predicted Class: {predicted_class}")
+            # Show confidence for each class
+            st.markdown("**Confidence Scores:**")
+            for i, name in enumerate(class_names):
+                st.write(f"- {name}: {float(pred[i]):.2%}")
+                st.progress(float(pred[i]))
 
-    # Show confidence for each class
-    for i, name in enumerate(class_names):
-        st.write(f"**{name} Confidence:** {pred[i]:.2%}")
-        st.progress(float(pred[i]))  # cast to float for Streamlit
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
