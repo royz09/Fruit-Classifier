@@ -38,21 +38,46 @@ def preprocess(image):
     img = np.array(img)/255.0
 
     # Ensure 3 channels
-    if img.ndim == 2:
+    if img.ndim == 2:  # grayscale
         img = np.stack([img]*3, axis=-1)
-    elif img.shape[-1] == 4:
+    elif img.shape[-1] == 4:  # RGBA
         img = img[:, :, :3]
 
     img = np.expand_dims(img, axis=0)
     return img
 
 # -------------------------------
-# App UI
+# Streamlit UI
 # -------------------------------
 st.set_page_config(page_title="🍎🍊🍌 Fruit Classifier", layout="wide")
-st.title("🍎🍊🍌 Fruit Classifier")
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 3rem;
+        background: linear-gradient(45deg, #FF6B6B, #FFD93D, #4ECDC4);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-align: center;
+        font-weight: bold;
+        margin-bottom: 1rem;
+    }
+    .prediction-card {
+        padding: 20px;
+        border-radius: 15px;
+        color: white;
+        text-align: center;
+        font-weight: bold;
+        margin-bottom: 15px;
+    }
+    .Apple { background: linear-gradient(135deg, #FF4E50, #F9D423); }
+    .Orange { background: linear-gradient(135deg, #FFA500, #FF8C00); }
+    .Banana { background: linear-gradient(135deg, #FFE135, #FFD700); color: black;}
+</style>
+""", unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("Upload an image", type=["jpg","jpeg","png"])
+st.markdown('<h1 class="main-header">🍎🍊🍌 Fruit Classifier</h1>', unsafe_allow_html=True)
+
+uploaded_file = st.file_uploader("Upload an image of a fruit", type=["jpg","jpeg","png"])
 
 # Sidebar with class info
 with st.sidebar:
@@ -69,16 +94,22 @@ with st.sidebar:
 # -------------------------------
 if uploaded_file:
     img = Image.open(uploaded_file)
-    st.image(img, caption="Uploaded Image", use_column_width=True)
+    st.image(img, caption="Uploaded Image", use_container_width=True)
     x = preprocess(img)
     
     pred = model.predict(x)[0]
     class_names = ["Apple","Orange","Banana"]
     predicted_class = class_names[np.argmax(pred)]
 
-    st.subheader(f"🎯 Predicted Class: {predicted_class}")
+    # Display prediction card
+    st.markdown(f"""
+    <div class="prediction-card {predicted_class}">
+        🎯 Predicted: {predicted_class} ({pred[np.argmax(pred)]:.2%})
+    </div>
+    """, unsafe_allow_html=True)
 
     # Confidence bars
+    st.subheader("📊 Confidence Levels")
     for i, name in enumerate(class_names):
-        st.write(f"**{name} Confidence:** {pred[i]:.2%}")
-        st.progress(pred[i])
+        st.write(f"**{name}:** {pred[i]:.2%}")
+        st.progress(float(pred[i]))
